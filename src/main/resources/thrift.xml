@@ -18,8 +18,8 @@
   -->
 
 <thrifts>
-	<thrift name="hduser0009">
-		<server name="10cores" username="hduser0009" password="123" valid="true" host="10.20.12.214" port="11005" maxThread="5" loginTimeout="2h" />
+	<thrift name="hadoop">
+		<server name="10cores" username="hadoop" password="123" valid="true" host="目标HiveServer2的IP" port="目标HiveServer2的Port" maxThread="5" loginTimeout="2h" />
 		<rule name="allowMultiSessionsInIP">
 			<type>Allow</type>
 <!-- 			<class></class>Multi -->

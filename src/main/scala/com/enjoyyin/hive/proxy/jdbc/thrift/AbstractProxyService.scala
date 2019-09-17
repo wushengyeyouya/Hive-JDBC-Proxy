@@ -22,6 +22,7 @@ import org.apache.hive.service.cli.thrift.TSessionHandle
 import org.apache.hive.service.cli.HandleIdentifier
 import com.enjoyyin.hive.proxy.jdbc.util.ProxyConf._
 import java.util.concurrent.ConcurrentHashMap
+
 import scala.collection.JavaConversions._
 import org.apache.hive.service.cli.thrift.TOperationHandle
 import com.enjoyyin.hive.proxy.jdbc.util.Logging
@@ -35,6 +36,7 @@ import com.enjoyyin.hive.proxy.jdbc.rule.ThriftServerNameRule
 import com.enjoyyin.hive.proxy.jdbc.rule.basic.StatisticsDealListener
 import com.enjoyyin.hive.proxy.jdbc.domain.HQLPriority
 import com.enjoyyin.hive.proxy.jdbc.util.DaemonThread
+import org.apache.commons.lang.StringUtils
 
 /**
  * @author enjoyyin
@@ -135,6 +137,7 @@ private[jdbc] trait AbstractProxyService extends Logging {
     }
     val session = new ProxySession(sessionId, thriftServerName, System.currentTimeMillis,
         thriftServer.username, null, ipAddress)
+    if(conf != null && conf.containsKey(ProxySession.USE_DATABASE)) session.setCurrentDB(conf.get(ProxySession.USE_DATABASE))
     validateProxySession(session)
     sessions += sessionId -> session
     logInfo(s"Open a session for user(${thriftServer.username}, address: $ipAddress), sessionId is: $sessionId")
@@ -180,6 +183,18 @@ private[jdbc] trait AbstractProxyService extends Logging {
         req.setStatement(hqlPriority.hql)
         event.specificPriority = hqlPriority.priority
     }
+    req.getStatement match {
+      case ProxySession.USE_DATABASE_REGEX1(db) => session.setCurrentDB(db)
+      case ProxySession.USE_DATABASE_REGEX2(db) => session.setCurrentDB(db)
+      case ProxySession.USE_DATABASE_REGEX3(db) =>
+        session.getCurrentDB.foreach(db => req.setStatement(s"use $db;${req.getStatement}"))
+        session.setCurrentDB(db)
+      case ProxySession.USE_DATABASE_REGEX4(db) =>
+        session.getCurrentDB.foreach(db => req.setStatement(s"use $db;${req.getStatement}"))
+        session.setCurrentDB(db)
+      case _ =>
+    }
+
   }
 
   protected def closeSession(sessionId: TSessionHandle) {
@@ -264,6 +279,10 @@ private[jdbc] class ProxySession(val sessionId: TSessionHandle, val thriftServer
                                  var lastAccessTime: Long, override val username: String, override val password: String,
                                  override val ipAddress: String)
       extends User(username, password, ipAddress) {
+  private var currentDB: Option[String] = None
+  def getCurrentDB: Option[String] = currentDB
+  def setCurrentDB(db: String): Unit = if(StringUtils.isNotBlank(db)) currentDB = Some(db)
+  def clearCurrentDB(): Unit = currentDB = None
   def updateAccessTime = sessionId.synchronized(lastAccessTime = System.currentTimeMillis)
   override def equals(o: Any): Boolean = {
     if(eq(o.asInstanceOf[AnyRef])) {
@@ -282,4 +301,11 @@ private[jdbc] class ProxySession(val sessionId: TSessionHandle, val thriftServer
     thriftServerName == other.thriftServerName && username == other.username &&
     ipAddress == other.ipAddress
   }
+}
+object ProxySession {
+  val USE_DATABASE = "use:database"
+  val USE_DATABASE_REGEX1 = "\\s*use\\s+([^\\s;]+)\\s*;?".r
+  val USE_DATABASE_REGEX2 = "\\s*use\\s+([^\\s;]+)\\s*;.+".r
+  val USE_DATABASE_REGEX3 = ".+;\\s*use\\s+([^\\s;]+)\\s*;?".r
+  val USE_DATABASE_REGEX4 = ".+;\\s*use\\s+([^\\s;]+)\\s*;.+".r
 }

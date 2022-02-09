@@ -27,7 +27,7 @@
     <version>1.0.0</version>
 
     <properties>
-        <hadoop.version>2.7.2</hadoop.version>
+        <hadoop.version>2.10.1</hadoop.version>
         <hive.version>1.2.1</hive.version>
         <jdk.compile.version>1.8</jdk.compile.version>
         <scala.version>2.11.8</scala.version>
